@@ -1,0 +1,16 @@
+:root {
+  color-scheme: light;
+  --bp-background: #f4f8fc;
+  --bp-surface: #ffffff;
+  --bp-border: #d6e1eb;
+  --bp-text: #0f172a;
+  --bp-muted: #64748b;
+  --bp-primary: #208aef;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bp-background);
+}
