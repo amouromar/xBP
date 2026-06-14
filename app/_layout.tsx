@@ -69,7 +69,7 @@ function SplashGate() {
   }, []);
 
   if (showSplash) {
-    return <AppSplash backgroundColor={colors.background} />;
+    return <AppSplash backgroundColor="transparent" />;
   }
 
   return (

@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
-import React, { useEffect, useState } from "react";
-import { Keyboard, Pressable, StyleSheet, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
     useAnimatedStyle,
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/Input";
 import { Text } from "@/components/ui/Text";
 
 import { useBPLogs } from "@/hooks/useBPLogs";
+import { useLocale } from "@/hooks/useLocale";
 import { useAppTheme } from "@/providers/ThemeProvider";
 import { BloodPressureReading } from "@/types";
 
@@ -25,6 +26,16 @@ type Props = {
   initialData?: BloodPressureReading | null;
 };
 
+function isFilled(value: string) {
+  return value.trim().length > 0;
+}
+
+function parsePositiveInt(value: string) {
+  const n = parseInt(value.trim(), 10);
+  if (isNaN(n) || n <= 0) return null;
+  return n;
+}
+
 export function LogSheet({
   visible,
   onClose,
@@ -32,7 +43,7 @@ export function LogSheet({
   initialData,
 }: Props) {
   const { addBpLog, updateBpLog } = useBPLogs();
-  const { colors } = useAppTheme();
+  const { t } = useLocale();
 
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
@@ -43,6 +54,11 @@ export function LogSheet({
   const backdropOpacity = useSharedValue(0);
   const keyboardHeight = useSharedValue(0);
 
+  const canSave = useMemo(
+    () => isFilled(systolic) && isFilled(diastolic) && isFilled(pulse),
+    [systolic, diastolic, pulse],
+  );
+
   useKeyboardHandler({
     onMove: (e) => {
       "worklet";
@@ -50,7 +66,6 @@ export function LogSheet({
     },
   });
 
-  // hydrate fields when switching modes
   useEffect(() => {
     if (visible && mode === "edit" && initialData) {
       setSystolic(String(initialData.systolic));
@@ -74,7 +89,7 @@ export function LogSheet({
       Keyboard.dismiss();
       setTimeout(() => setRender(false), 220);
     }
-  }, [visible]);
+  }, [visible, backdropOpacity]);
 
   const containerStyle = useAnimatedStyle(() => ({
     paddingBottom: keyboardHeight.value,
@@ -84,24 +99,58 @@ export function LogSheet({
     opacity: backdropOpacity.value,
   }));
 
-  const handleSave = async () => {
-    const sys = parseInt(systolic, 10);
-    const dia = parseInt(diastolic, 10);
-    const pul = parseInt(pulse, 10);
+  const validateFields = () => {
+    if (!isFilled(systolic)) {
+      Alert.alert(t("logSheet.missingFieldTitle"), t("logSheet.missingSystolic"));
+      return null;
+    }
+    if (!isFilled(diastolic)) {
+      Alert.alert(t("logSheet.missingFieldTitle"), t("logSheet.missingDiastolic"));
+      return null;
+    }
+    if (!isFilled(pulse)) {
+      Alert.alert(t("logSheet.missingFieldTitle"), t("logSheet.missingPulse"));
+      return null;
+    }
 
-    if (isNaN(sys) || isNaN(dia)) return;
+    const sys = parsePositiveInt(systolic);
+    if (sys === null) {
+      Alert.alert(t("logSheet.missingFieldTitle"), t("logSheet.invalidSystolic"));
+      return null;
+    }
+
+    const dia = parsePositiveInt(diastolic);
+    if (dia === null) {
+      Alert.alert(t("logSheet.missingFieldTitle"), t("logSheet.invalidDiastolic"));
+      return null;
+    }
+
+    const pul = parsePositiveInt(pulse);
+    if (pul === null) {
+      Alert.alert(t("logSheet.missingFieldTitle"), t("logSheet.invalidPulse"));
+      return null;
+    }
+
+    return { sys, dia, pul };
+  };
+
+  const handleSave = async () => {
+    const values = validateFields();
+    if (!values) return;
+
+    const { sys, dia, pul } = values;
 
     if (mode === "edit" && initialData) {
       updateBpLog(initialData.id, {
         systolic: sys,
         diastolic: dia,
-        pulse: isNaN(pul) ? undefined : pul,
+        pulse: pul,
       });
     } else {
       addBpLog({
         systolic: sys,
         diastolic: dia,
-        pulse: isNaN(pul) ? undefined : pul,
+        pulse: pul,
       });
     }
 
@@ -116,18 +165,16 @@ export function LogSheet({
 
   return (
     <View style={styles.root}>
-      {/* Backdrop */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
           <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         </Animated.View>
       </Pressable>
 
-      {/* Sheet */}
       <Animated.View style={[styles.overlay, containerStyle]}>
         <Card style={styles.sheet}>
           <Text variant="section">
-            {mode === "edit" ? "Edit Reading" : "Log New Reading"}
+            {mode === "edit" ? t("logSheet.editTitle") : t("logSheet.title")}
           </Text>
 
           <View style={styles.form}>
@@ -135,34 +182,39 @@ export function LogSheet({
               value={systolic}
               onChangeText={setSystolic}
               keyboardType="number-pad"
-              placeholder="Systolic (120)"
+              placeholder={t("logSheet.systolicPlaceholder")}
             />
 
             <Input
               value={diastolic}
               onChangeText={setDiastolic}
               keyboardType="number-pad"
-              placeholder="Diastolic (80)"
+              placeholder={t("logSheet.diastolicPlaceholder")}
             />
 
             <Input
               value={pulse}
               onChangeText={setPulse}
               keyboardType="number-pad"
-              placeholder="Pulse (72)"
-              onSubmitEditing={handleSave}
+              placeholder={t("logSheet.pulsePlaceholder")}
+              onSubmitEditing={canSave ? handleSave : undefined}
             />
           </View>
 
           <View style={styles.actions}>
             <View style={styles.button}>
-              <Button title="Cancel" variant="secondary" onPress={onClose} />
+              <Button
+                title={t("logSheet.cancel")}
+                variant="secondary"
+                onPress={onClose}
+              />
             </View>
 
             <View style={styles.button}>
               <Button
-                title={mode === "edit" ? "Update" : "Save"}
+                title={mode === "edit" ? t("logSheet.update") : t("logSheet.save")}
                 onPress={handleSave}
+                disabled={!canSave}
               />
             </View>
           </View>

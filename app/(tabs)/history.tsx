@@ -1,16 +1,23 @@
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View, TouchableOpacity } from "react-native";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
 
 import { BPDisplay } from "@/components/BPDisplay";
+import { PeriodSummaryBar } from "@/components/PeriodSummaryBar";
 import { Card } from "@/components/ui/Card";
 import { Text } from "@/components/ui/Text";
 import { useBPLogs } from "@/hooks/useBPLogs";
 import { useAppTheme } from "@/providers/ThemeProvider";
-import { formatDateTime } from "@/utils/formatting";
+import {
+  endOfMonth,
+  formatMonthLabel,
+  getPeriodStats,
+  startOfMonth,
+} from "@/utils/periodStats";
+import { useLocale } from "@/hooks/useLocale";
+import { useTabBarInset } from "@/hooks/useTabBarInset";
 import { useTheme } from "@/hooks/useTheme";
 import { Header } from "@/components/ui/Header";
-import { Moon, Sun } from "lucide-react-native";
+import { Moon, Sun,  ChevronLeft, ChevronRight } from "lucide-react-native";
 
 function startOfWeek(date: Date) {
   const d = new Date(date);
@@ -57,8 +64,9 @@ function formatWeekRange(start: Date) {
 export default function HistoryScreen() {
   const { logs } = useBPLogs();
   const { colors } = useAppTheme();
-  const { themeName } = useTheme();
-  const { toggleTheme } = useTheme();
+  const { themeName, toggleTheme } = useTheme();
+  const { t, locale } = useLocale();
+  const { tabBarHeight } = useTabBarInset();
   const isDark = themeName === "dark";
 
 
@@ -79,13 +87,24 @@ export default function HistoryScreen() {
     );
   }, [logs, selectedDate]);
 
+  const monthStats = useMemo(() => {
+    return getPeriodStats(
+      logs,
+      startOfMonth(weekStart),
+      endOfMonth(weekStart),
+    );
+  }, [logs, weekStart]);
+
   return (
     <FlatList
       data={filteredLogs}
       keyExtractor={(item) => item.id}
       contentContainerStyle={[
         styles.content,
-        { backgroundColor: colors.background },
+        {
+          backgroundColor: colors.background,
+          paddingBottom: tabBarHeight + 20,
+        },
       ]}
       ListHeaderComponent={
 
@@ -105,9 +124,16 @@ export default function HistoryScreen() {
           />
           <View style={styles.header}>
             <Text variant="body" color="muted">
-              Browse readings by week and day.
+              {t("history.subtitle")}
             </Text>
 
+            <PeriodSummaryBar
+              label={formatMonthLabel(weekStart)}
+              averageSystolic={monthStats.average?.systolic}
+              averageDiastolic={monthStats.average?.diastolic}
+              points={monthStats.points}
+              readingCount={monthStats.count}
+            />
 
             {/* WEEK NAVIGATOR */}
             <View style={styles.weekNav}>
@@ -142,7 +168,7 @@ export default function HistoryScreen() {
                       variant="body"
                       color={active ? "primary" : "muted"}
                     >
-                      {date.toLocaleDateString("en-US", {
+                      {date.toLocaleDateString(locale, {
                         weekday: "short",
                       })}
                     </Text>
@@ -164,9 +190,9 @@ export default function HistoryScreen() {
       }
       ListEmptyComponent={
         <Card style={{ marginHorizontal: 20, alignItems: "center", gap: 8 }}>
-          <Text variant="section">No readings</Text>
+          <Text variant="section">{t("history.noReadings")}</Text>
           <Text variant="body" color="muted">
-            No blood pressure logs for this day.
+            {t("history.noReadingsDay")}
           </Text>
         </Card>
       }

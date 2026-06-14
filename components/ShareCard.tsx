@@ -14,10 +14,12 @@ type Props = {
   systolic: number;
   diastolic: number;
   pulse?: number;
+  statusLabel?: string;
+  recommendation?: string;
 };
 
 export const ShareCard = forwardRef<View, Props>(function ShareCard(
-  { systolic, diastolic, pulse },
+  { systolic, diastolic, pulse, statusLabel, recommendation },
   ref
 ) {
   const { colors } = useAppTheme();
@@ -52,13 +54,22 @@ export const ShareCard = forwardRef<View, Props>(function ShareCard(
             { backgroundColor: colors.primarySoft },
           ]}
         >
-          {/* BP */}
           <Text style={styles.bp}>{bp}</Text>
 
-          {/* Pulse */}
+          {statusLabel ? (
+            <Text style={[styles.status, { color: colors.primary }]} numberOfLines={1}>
+              {statusLabel}
+            </Text>
+          ) : null}
+
+          {recommendation ? (
+            <Text style={styles.recommendation} numberOfLines={2}>
+              {recommendation}
+            </Text>
+          ) : null}
+
           <Text style={styles.pulse}>{pulse ?? "--"} bpm</Text>
 
-          {/* Footer row */}
           <View style={styles.footer}>
             <Text style={styles.date}>{date}</Text>
           </View>
@@ -80,34 +91,49 @@ const styles = StyleSheet.create({
 
   card: {
     width: 256,
-    height: 256,
-    paddingVertical: 28,
-    paddingHorizontal: 22,
+    minHeight: 256,
+    paddingVertical: 24,
+    paddingHorizontal: 18,
     borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    gap: 18,
+    gap: 8,
     overflow: "hidden",
   },
 
   bp: {
-    fontSize: 52,
+    fontSize: 48,
     fontWeight: "600",
     letterSpacing: 2,
-    lineHeight: 60,
-    paddingVertical: 4,
+    lineHeight: 54,
+    paddingVertical: 2,
     textAlignVertical: "center",
     includeFontPadding: false,
   },
 
+  status: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  recommendation: {
+    fontSize: 11,
+    fontWeight: "500",
+    opacity: 0.75,
+    textAlign: "center",
+    lineHeight: 15,
+    paddingHorizontal: 4,
+  },
+
   pulse: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "500",
     opacity: 0.75,
   },
 
   footer: {
-    marginTop: 14,
+    marginTop: 8,
     width: "100%",
     flexDirection: "row",
     justifyContent: "center",

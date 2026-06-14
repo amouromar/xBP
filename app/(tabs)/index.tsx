@@ -8,40 +8,31 @@ import {
 } from "react-native";
 
 import { BPDisplay } from "@/components/BPDisplay";
+import { PeriodSummaryBar } from "@/components/PeriodSummaryBar";
 import { LogSheet } from "@/components/LogSheet";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/ui/Header";
 import { Text } from "@/components/ui/Text";
 import { useBPLogs } from "@/hooks/useBPLogs";
+import { useLocale } from "@/hooks/useLocale";
+import { useTabBarInset } from "@/hooks/useTabBarInset";
 import { useTheme } from "@/hooks/useTheme";
 import { useAppTheme } from "@/providers/ThemeProvider";
 import { storeActions } from "@/store/useStore";
 import { BloodPressureReading } from "@/types";
+import { Moon, Sun } from "lucide-react-native";
 import {
-  GalleryVerticalEnd,
-  Moon,
-  Share,
-  Sun,
-} from "lucide-react-native";
-import { router } from "expo-router";
+  endOfWeek,
+  getPeriodStats,
+  startOfWeek,
+} from "@/utils/periodStats";
 
 /**
  * ----------------------------
- * SAFE DATE HELPERS
+ * WEEK HELPERS
  * ----------------------------
  */
-
-function startOfWeek(date: Date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-
-  return d;
-}
 
 function getWeekDates() {
   const start = startOfWeek(new Date());
@@ -63,10 +54,25 @@ function isSameDay(a: Date, b: Date) {
 
 /**
  * ----------------------------
+ * WEEKDAY LABELS (SAFE + CONTROLLED)
+ * ----------------------------
+ * avoids toLocaleDateString inconsistencies
+ */
+
+const WEEKDAY_MAP: Record<string, string[]> = {
+  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  de: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+  es: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+  fr: ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
+  sw: ["Jpl", "Jta", "Jnn", "Jtn", "Alh", "Ijm", "Jmo"],
+};
+
+/**
+ * ----------------------------
  * SAFE LOG GUARD
  * ----------------------------
- * Prevents undefined / broken logs from crashing UI
  */
+
 function isValidLog(log: any): log is BloodPressureReading {
   return (
     log &&
@@ -81,6 +87,8 @@ function isValidLog(log: any): log is BloodPressureReading {
 export default function HomeScreen() {
   const { colors } = useAppTheme();
   const { themeName, toggleTheme } = useTheme();
+  const { t, locale } = useLocale();
+  const { floatingBottomOffset, tabBarHeight } = useTabBarInset();
   const isDark = themeName === "dark";
 
   const { logs } = useBPLogs();
@@ -91,20 +99,25 @@ export default function HomeScreen() {
 
   const weekDates = useMemo(() => getWeekDates(), []);
 
-  /**
-   * STEP 1:
-   * filter + remove corrupted logs
-   */
+  const weekdayLabels = useMemo(() => {
+    return WEEKDAY_MAP[locale] ?? WEEKDAY_MAP.en;
+  }, [locale]);
+
+  const weekStats = useMemo(() => {
+    const now = new Date();
+    return getPeriodStats(
+      logs.filter(isValidLog),
+      startOfWeek(now),
+      endOfWeek(now),
+    );
+  }, [logs]);
+
   const dayLogs = useMemo(() => {
     return logs
       .filter(isValidLog)
       .filter((log) => isSameDay(new Date(log.createdAt), selectedDate));
   }, [logs, selectedDate]);
 
-  /**
-   * STEP 2:
-   * sort safely
-   */
   const sortedLogs = useMemo(() => {
     return [...dayLogs].sort((a, b) => {
       const aTime = new Date(a.createdAt).getTime();
@@ -118,52 +131,52 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         rightContent={
-          <>
-            <TouchableOpacity hitSlop={12} onPress={toggleTheme}>
-              {isDark ? (
-                <Sun size={24} color={colors.primary} />
-              ) : (
-                <Moon size={24} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity hitSlop={12} onPress={() => console.log("Share")}>
-              <Share size={24} color={colors.primary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              hitSlop={12}
-              onPress={() => router.push("/(tabs)/history")}
-            >
-              <GalleryVerticalEnd size={24} color={colors.primary} />
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity hitSlop={12} onPress={toggleTheme}>
+            {isDark ? (
+              <Sun size={24} color={colors.primary} />
+            ) : (
+              <Moon size={24} color={colors.primary} />
+            )}
+          </TouchableOpacity>
         }
       />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: tabBarHeight + 80 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
-          <Text variant="body" color="muted">
-            Track your readings across the week.
-          </Text>
-        </View>
+        <Text variant="body" color="muted">
+          {t("home.subtitle")}
+        </Text>
+
+        <PeriodSummaryBar
+          label={t("home.thisWeek")}
+          averageSystolic={weekStats.average?.systolic}
+          averageDiastolic={weekStats.average?.diastolic}
+          points={weekStats.points}
+          readingCount={weekStats.count}
+        />
 
         {/* WEEK STRIP */}
         <View style={styles.calendarStrip}>
-          {weekDates.map((date, index) => {
+          {weekDates.map((date) => {
             const active = isSameDay(date, selectedDate);
 
             return (
               <Pressable
-                key={`day-${date.toISOString()}`} // ✅ stable key
+                key={`day-${date.toISOString()}`}
                 onPress={() => setSelectedDate(date)}
                 style={[styles.dayCard, active && styles.dayCardActive]}
               >
-                <Text variant="body" color={active ? "primary" : "muted"}>
-                  {date.toLocaleDateString("en-US", { weekday: "short" })}
+                <Text
+                  variant="body"
+                  color={active ? "primary" : "muted"}
+                  style={{ width: 32, textAlign: "center" }}
+                >
+                  {weekdayLabels[date.getDay()]}
                 </Text>
 
                 <Text
@@ -183,7 +196,10 @@ export default function HomeScreen() {
         <Card style={{ marginTop: 8, borderRadius: 18 }}>
           <View style={styles.sortRow}>
             <Text variant="section">
-              {sortedLogs.length} Reading{sortedLogs.length !== 1 ? "s" : ""}
+              {sortedLogs.length}{" "}
+              {sortedLogs.length === 1
+                ? t("home.reading")
+                : t("home.readings")}
             </Text>
 
             {sortedLogs.length > 1 && (
@@ -196,7 +212,7 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Text color={sortOrder === "latest" ? "primary" : "muted"}>
-                    Latest
+                    {t("home.latest")}
                   </Text>
                 </Pressable>
 
@@ -208,7 +224,7 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Text color={sortOrder === "earliest" ? "primary" : "muted"}>
-                    Earliest
+                    {t("home.earliest")}
                   </Text>
                 </Pressable>
               </View>
@@ -218,7 +234,7 @@ export default function HomeScreen() {
           {sortedLogs.length > 0 ? (
             <View style={{ gap: 12 }}>
               {sortedLogs.map((log) => {
-                if (!log?.id) return null; // extra safety
+                if (!log?.id) return null;
 
                 return (
                   <View key={log.id}>
@@ -238,15 +254,15 @@ export default function HomeScreen() {
             </View>
           ) : (
             <Text variant="body" color="muted">
-              No readings for this day.
+              {t("home.noReadingsDay")}
             </Text>
           )}
         </Card>
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { bottom: floatingBottomOffset - 74 }]}>
         <Button
-          title="Log New Reading"
+          title={t("home.logNewReading")}
           onPress={() => setShowLogSheet(true)}
         />
       </View>
@@ -259,6 +275,12 @@ export default function HomeScreen() {
   );
 }
 
+/**
+ * ----------------------------
+ * STYLES
+ * ----------------------------
+ */
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
@@ -266,12 +288,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 0,
     gap: 16,
-    paddingBottom: 120,
-  },
-
-  hero: {
-    gap: 10,
-    marginBottom: 8,
   },
 
   calendarStrip: {
@@ -329,6 +345,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: 24,
   },
 });

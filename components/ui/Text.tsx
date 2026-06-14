@@ -9,13 +9,26 @@ type Props = TextProps & {
   color?: "default" | "muted" | "primary";
 };
 
-export function Text({ variant = "body", color = "default", style, ...props }: Props) {
+export function Text({
+  variant = "body",
+  color = "default",
+  style,
+  allowFontScaling = true,
+  maxFontSizeMultiplier = 1.3,
+  ...props
+}: Props) {
   const { colors } = useAppTheme();
-  const resolvedColor = color === "default" && variant === "eyebrow" ? "primary" : color;
+
+  const resolvedColor =
+    color === "default" && variant === "eyebrow"
+      ? "primary"
+      : color;
 
   return (
     <RNText
       {...props}
+      allowFontScaling={allowFontScaling}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       style={[
         styles.base,
         styles[variant],
@@ -30,20 +43,24 @@ const styles = StyleSheet.create({
   base: {
     fontFamily: "BricolageGrotesque",
   },
+
   body: {
     fontSize: 16,
     lineHeight: 22,
   },
+
   title: {
     fontSize: 30,
     lineHeight: 36,
     fontWeight: "600",
   },
+
   section: {
     fontSize: 18,
     lineHeight: 24,
     fontWeight: "600",
   },
+
   eyebrow: {
     fontSize: 12,
     lineHeight: 16,
@@ -62,9 +79,11 @@ function colorStyles(colors: {
     default: {
       color: colors.text,
     },
+
     muted: {
       color: colors.textSecondary,
     },
+
     primary: {
       color: colors.primary,
     },

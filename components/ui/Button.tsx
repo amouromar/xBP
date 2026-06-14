@@ -34,8 +34,11 @@ export function Button({
         styles.base,
         {
           backgroundColor:
-            variant === "secondary" || variant === "textSecondary" ? colors.surface :
-            variant === "destructive" ? "#ef4444" : colors.primary,
+            variant === "secondary" || variant === "textSecondary"
+              ? colors.surface
+              : variant === "destructive"
+              ? "#ef4444"
+              : colors.primary,
           borderColor: colors.border,
           opacity: disabled ? 0.5 : 1,
         },
@@ -45,16 +48,29 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === "secondary" || variant === "textSecondary" ? colors.text : "#fff"}
+          color={
+            variant === "secondary" || variant === "textSecondary"
+              ? colors.text
+              : "#fff"
+          }
         />
       ) : (
         <Text
           variant="body"
-          color={variant === "secondary" || variant === "textSecondary" ? "default" : "default"}
+          color="default"
           style={[
             styles.label,
-            { color: variant === "secondary" || variant === "textSecondary" ? colors.text : "#fff" },
+            {
+              color:
+                variant === "secondary" || variant === "textSecondary"
+                  ? colors.text
+                  : "#fff",
+              flexShrink: 1,
+              flexWrap: "nowrap",
+              textAlign: "center",
+            },
           ]}
+          numberOfLines={1}
         >
           {displayText}
         </Text>

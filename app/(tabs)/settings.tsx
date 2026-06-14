@@ -1,18 +1,20 @@
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
+import { HealthGuidelinesForm } from "@/components/HealthGuidelinesForm";
 import { SharePreview } from "@/components/SharePreview";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Header } from "@/components/ui/Header";
 import { Text } from "@/components/ui/Text";
+import { useLocale } from "@/hooks/useLocale";
 import { useTheme } from "@/hooks/useTheme";
 import { useAppTheme } from "@/providers/ThemeProvider";
 import { Moon, Sun } from "lucide-react-native";
 
 export default function SettingsScreen() {
   const { colors } = useAppTheme();
-  const { themeName } = useTheme();
-  const { toggleTheme } = useTheme();
+  const { themeName, toggleTheme } = useTheme();
+  const { t } = useLocale();
   const isDark = themeName === "dark";
 
   return (
@@ -33,21 +35,26 @@ export default function SettingsScreen() {
 
       <View style={styles.header}>
         <Text variant="body" color="muted">
-          Adjust app preferences and preview sharing layouts.
+          {t("settings.subtitle")}
         </Text>
       </View>
 
-      <View style={{ padding: 20, gap: 20 }}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Card style={{ borderRadius: 18 }}>
-          <Text variant="section">Appearance</Text>
+          <Text variant="section">{t("settings.appearance")}</Text>
           <Text variant="body" color="muted">
-            Current theme: {themeName}
+            {t("settings.currentTheme")}: {themeName}
           </Text>
-          <Button title="Toggle theme" onPress={toggleTheme} />
+          <Button title={t("settings.toggleTheme")} onPress={toggleTheme} />
         </Card>
 
+        <HealthGuidelinesForm />
+
         <SharePreview />
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -58,5 +65,10 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
+  },
+  scrollContent: {
+    padding: 20,
+    gap: 20,
+    paddingBottom: 40,
   },
 });

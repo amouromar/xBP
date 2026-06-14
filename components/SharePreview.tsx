@@ -1,48 +1,94 @@
 import { useBPLogs } from "@/hooks/useBPLogs";
+import { useHealthGuidelines } from "@/hooks/useHealthGuidelines";
 import { useAppTheme } from "@/providers/ThemeProvider";
 import { BloodPressureReading } from "@/types";
+import { getReadingStatus } from "@/utils/bpCalculations";
 import { formatBp } from "@/utils/formatting";
 import * as MediaLibrary from "expo-media-library";
 import React, { useRef, useState } from "react";
 import {
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
+import { PdfExportSheet } from "./PdfExportSheet";
 import { ShareCard } from "./ShareCard";
+import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
 import { Text } from "./ui/Text";
 
+function resolveStatusFields(
+  log: BloodPressureReading,
+  guidelines: ReturnType<typeof useHealthGuidelines>["healthGuidelines"],
+) {
+  if (log.statusLabel && log.recommendation) {
+    return {
+      statusLabel: log.statusLabel,
+      recommendation: log.recommendation,
+    };
+  }
+
+  const status = getReadingStatus(
+    log.systolic,
+    log.diastolic,
+    log.pulse,
+    guidelines,
+  );
+
+  return {
+    statusLabel: log.statusLabel ?? status.statusLabel,
+    recommendation: log.recommendation ?? status.recommendation,
+  };
+}
+
 export function SharePreview() {
   const { logs } = useBPLogs();
+  const { healthGuidelines } = useHealthGuidelines();
   const { colors } = useAppTheme();
   const cardRef = useRef<View | null>(null);
   const [selectedLog, setSelectedLog] = useState<BloodPressureReading | null>(
-    logs[0] ?? null
+    logs[0] ?? null,
   );
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [lastTap, setLastTap] = useState(0);
+  const [showPdfSheet, setShowPdfSheet] = useState(false);
+  const [isSavingImage, setIsSavingImage] = useState(false);
 
-  const handleCardPress = () => {
-    const now = Date.now();
-    const DOUBLE_PRESS_DELAY = 300;
+  const handleSaveImage = async () => {
+    try {
+      setIsSavingImage(true);
 
-    if (lastTap && now - lastTap < DOUBLE_PRESS_DELAY) {
-      setShowExportMenu(true);
-      setLastTap(0);
-    } else {
-      setLastTap(now);
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission required", "Allow media access to save image.");
+        return;
+      }
+
+      if (!cardRef.current) {
+        Alert.alert("Error", "Could not capture image.");
+        return;
+      }
+
+      const uri = await captureRef(cardRef.current, {
+        format: "png",
+        quality: 1,
+      });
+
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert("Success", "Image saved to your photo gallery!");
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Could not export image.");
+    } finally {
+      setIsSavingImage(false);
     }
   };
 
   if (!selectedLog && logs.length === 0) {
     return (
       <Card>
-        <Text variant="section">Share preview</Text>
+        <Text variant="section">Export</Text>
         <Text variant="body" color="muted">
           No BP logs available. Add a log to get started.
         </Text>
@@ -50,12 +96,18 @@ export function SharePreview() {
     );
   }
 
+  const statusFields = selectedLog
+    ? resolveStatusFields(selectedLog, healthGuidelines)
+    : null;
+
   return (
     <>
       <Card>
-        <Text variant="section">Share preview</Text>
+        <Text variant="section">Export</Text>
+        <Text variant="body" color="muted">
+          Save a share card image or export your readings as a PDF report.
+        </Text>
 
-        {/* Log selector */}
         {logs.length > 1 && (
           <View style={styles.selectorContainer}>
             <ScrollView
@@ -92,134 +144,44 @@ export function SharePreview() {
           </View>
         )}
 
-        {/* Share card with double-tap */}
-        {selectedLog && (
-          <Pressable
-            onPress={handleCardPress}
-            delayLongPress={200}
-          >
-            <View style={styles.cardContainer}>
-              <ShareCard
-                ref={cardRef}
-                systolic={selectedLog.systolic}
-                diastolic={selectedLog.diastolic}
-                pulse={selectedLog.pulse}
-              />
-            </View>
-            <Text
-              variant="body"
-              color="muted"
-              style={styles.doubleTapHint}
-            >
-              Double tap to export
-            </Text>
-          </Pressable>
-        )}
+        {selectedLog && statusFields ? (
+          <View style={styles.cardContainer}>
+            <ShareCard
+              ref={cardRef}
+              systolic={selectedLog.systolic}
+              diastolic={selectedLog.diastolic}
+              pulse={selectedLog.pulse}
+              statusLabel={statusFields.statusLabel}
+              recommendation={statusFields.recommendation}
+            />
+          </View>
+        ) : null}
+
+        <View style={styles.exportActions}>
+          <View style={styles.exportButton}>
+            <Button
+              title="Save Image"
+              onPress={handleSaveImage}
+              loading={isSavingImage}
+              disabled={isSavingImage || !selectedLog}
+            />
+          </View>
+          <View style={styles.exportButton}>
+            <Button
+              title="Export PDF"
+              variant="secondary"
+              onPress={() => setShowPdfSheet(true)}
+              disabled={logs.length === 0}
+            />
+          </View>
+        </View>
       </Card>
 
-      {/* Export menu modal */}
-      <ExportMenu
-        visible={showExportMenu}
-        onClose={() => setShowExportMenu(false)}
-        cardRef={cardRef}
+      <PdfExportSheet
+        visible={showPdfSheet}
+        onClose={() => setShowPdfSheet(false)}
       />
     </>
-  );
-}
-
-interface ExportMenuProps {
-  visible: boolean;
-  onClose: () => void;
-  cardRef: React.RefObject<View | null>;
-}
-
-function ExportMenu({ visible, onClose, cardRef }: ExportMenuProps) {
-  const { colors } = useAppTheme();
-  const [isExporting, setIsExporting] = useState(false);
-
-  const handleSaveToDevice = async () => {
-    try {
-      setIsExporting(true);
-
-      // Request permission
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission required", "Allow media access to save image.");
-        return;
-      }
-
-      if (!cardRef.current) {
-        Alert.alert("Error", "Could not capture image.");
-        return;
-      }
-
-      // Capture the card
-      const uri = await captureRef(cardRef.current, {
-        format: "png",
-        quality: 1,
-      });
-
-      // Save to gallery
-      await MediaLibrary.saveToLibraryAsync(uri);
-
-      Alert.alert("Success", "Image saved to your photo gallery!");
-      onClose();
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Could not export image.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        style={styles.modalOverlay}
-        onPress={onClose}
-      >
-        <View
-          style={[
-            styles.menuContainer,
-            { backgroundColor: colors.surface },
-          ]}
-        >
-          <Text variant="section" style={styles.menuTitle}>
-            Export Options
-          </Text>
-
-          <Pressable
-            onPress={handleSaveToDevice}
-            disabled={isExporting}
-            style={({ pressed }) => [
-              styles.menuItem,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Text variant="body" color="primary">
-              {isExporting ? "Saving..." : "Save to Device"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.menuItem,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Text variant="body" color="muted">
-              Cancel
-            </Text>
-          </Pressable>
-        </View>
-      </Pressable>
-    </Modal>
   );
 }
 
@@ -227,9 +189,6 @@ const styles = StyleSheet.create({
   selectorContainer: {
     marginVertical: 12,
     gap: 8,
-  },
-  selectorLabel: {
-    marginLeft: 0,
   },
   logList: {
     marginHorizontal: -8,
@@ -252,32 +211,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  doubleTapHint: {
-    textAlign: "center",
-    marginTop: 8,
-    fontSize: 12,
+  exportActions: {
+    flexDirection: "row",
+    gap: 12,
   },
-  modalOverlay: {
+  exportButton: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  menuContainer: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: 32,
-  },
-  menuTitle: {
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  menuItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    marginVertical: 8,
   },
 });

@@ -13,6 +13,7 @@ const demoReading: BloodPressureReading = {
 
 export function useBPLogs() {
   const logs = useStore((state) => state.bpLogs);
+  const totalScore = useStore((state) => state.totalScore);
 
   const latestReading = logs[0] ?? demoReading;
   const averageReading = getAverageReading(logs) ?? demoReading;
@@ -21,10 +22,11 @@ export function useBPLogs() {
     logs,
     latestReading,
     averageReading,
+    totalScore,
 
     addBpLog: storeActions.addBpLog,
     removeBpLog: storeActions.removeBpLog,
-    updateBpLog: storeActions.updateBpLog, // ✅ FIXED
+    updateBpLog: storeActions.updateBpLog,
 
     addDemoReading() {
       storeActions.addBpLog({
