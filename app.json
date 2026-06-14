@@ -32,7 +32,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/res/favicon.ico"
+      "favicon": "./assets/images/res/mipmap-xhdpi/ic_launcher_monochrome.png"
     },
     "plugins": [
       "expo-router",
@@ -66,6 +66,12 @@
       "eas": {
         "projectId": "659d9ce9-7d46-4fff-a138-9981d92b6812"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/659d9ce9-7d46-4fff-a138-9981d92b6812"
     }
   }
 }
