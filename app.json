@@ -40,10 +40,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/res/mipmap-xhdpi/ic_launcher_monochrome.png",
-            "imageWidth": 76
-          }
+          "image": "./assets/images/res/mipmap-xhdpi/ic_launcher_monochrome.png",
+          "imageWidth": 250
         }
       ],
       [
