@@ -10,7 +10,7 @@ Built with React Native (Expo). Runs beautifully on both iOS and Android.
 ## Screenshots
 
 ### Main Home Screen
-![Home Screen](https://assets.grok.com/users/cbc2d612-73ee-4030-8867-24eee9e28be9/bcbf9e7d-e4de-42b1-af25-e343a66d5547/content)
+![Home Screen](https://x-bp-web.vercel.app/assets/screenshots/hero.webp)
 
 ### History Screen (Latest readings)
 ![History Screen](https://assets.grok.com/users/cbc2d612-73ee-4030-8867-24eee9e28be9/cd17528c-560b-4b7c-91b5-ba125788e8e4/content)
